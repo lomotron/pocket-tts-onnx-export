@@ -19,10 +19,10 @@ def install_check():
 
 
 def _model_label(language: str | None, config: str | None) -> str:
-    if language:
-        return language
     if config:
         return Path(config).stem
+    if language:
+        return language
     return DEFAULT_LANGUAGE
 
 

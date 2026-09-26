@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -74,9 +75,11 @@ def _save_metadata(output_dir: Path, metadata: dict):
 
 
 def _copy_tokenizer(tts_model, output_dir: Path) -> str:
-    tokenizer_src = download_if_necessary(tts_model.config.flow_lm.lookup_table.tokenizer_path)
+    tokenizer_src = Path(download_if_necessary(tts_model.config.flow_lm.lookup_table.tokenizer_path))
     tokenizer_dest = output_dir / "tokenizer.model"
     if tokenizer_src.resolve() != tokenizer_dest.resolve():
+        if tokenizer_dest.exists():
+            tokenizer_dest.unlink()
         shutil.copy2(tokenizer_src, tokenizer_dest)
     return tokenizer_dest.name
 

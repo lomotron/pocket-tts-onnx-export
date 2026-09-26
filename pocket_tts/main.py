@@ -8,11 +8,16 @@ from pathlib import Path
 from queue import Queue
 
 import typer
-import uvicorn
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
 from typing_extensions import Annotated
+
+try:
+    import uvicorn
+    from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import FileResponse, StreamingResponse
+    HAS_SERVER_DEPS = True
+except ImportError:
+    HAS_SERVER_DEPS = False
 
 from pocket_tts.data.audio import stream_audio_chunks
 from pocket_tts.default_parameters import (
@@ -38,31 +43,32 @@ cli_app = typer.Typer(
 
 tts_model: TTSModel | None = None
 
-web_app = FastAPI(
-    title="Kyutai Pocket TTS API", description="Text-to-Speech generation API", version="1.0.0"
-)
-web_app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://pod1-10007.internal.kyutai.org",
-        "https://kyutai.org",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if HAS_SERVER_DEPS:
+    web_app = FastAPI(
+        title="Kyutai Pocket TTS API", description="Text-to-Speech generation API", version="1.0.0"
+    )
+    web_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",
+            "https://pod1-10007.internal.kyutai.org",
+            "https://kyutai.org",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
+    @web_app.get("/")
+    async def root():
+        static_path = Path(__file__).parent / "static" / "index.html"
+        return FileResponse(static_path)
 
-@web_app.get("/")
-async def root():
-    static_path = Path(__file__).parent / "static" / "index.html"
-    return FileResponse(static_path)
-
-
-@web_app.get("/health")
-async def health():
-    return {"status": "healthy"}
+    @web_app.get("/health")
+    async def health():
+        return {"status": "healthy"}
+else:
+    web_app = None
 
 
 def write_to_queue(queue, text_to_generate, model_state):
@@ -99,56 +105,57 @@ def generate_data_with_state(text_to_generate: str, model_state: dict):
     thread.join()
 
 
-@web_app.post("/tts")
-def text_to_speech(
-    text: str = Form(...),
-    voice_url: str | None = Form(None),
-    voice_wav: UploadFile | None = File(None),
-):
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="Text cannot be empty")
+if HAS_SERVER_DEPS:
+    @web_app.post("/tts")
+    def text_to_speech(
+        text: str = Form(...),
+        voice_url: str | None = Form(None),
+        voice_wav: UploadFile | None = File(None),
+    ):
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="Text cannot be empty")
 
-    if voice_url is None and voice_wav is None:
-        voice_url = DEFAULT_AUDIO_PROMPT
+        if voice_url is None and voice_wav is None:
+            voice_url = DEFAULT_AUDIO_PROMPT
 
-    if voice_url is not None and voice_wav is not None:
-        raise HTTPException(status_code=400, detail="Cannot provide both voice_url and voice_wav")
+        if voice_url is not None and voice_wav is not None:
+            raise HTTPException(status_code=400, detail="Cannot provide both voice_url and voice_wav")
 
-    if voice_url is not None:
-        if not (
-            voice_url.startswith("http://")
-            or voice_url.startswith("https://")
-            or voice_url.startswith("hf://")
-            or voice_url in _ORIGINS_OF_PREDEFINED_VOICES
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail="voice_url must be a built-in voice name or start with http://, https://, or hf://",
-            )
-        model_state = tts_model._cached_get_state_for_audio_prompt(voice_url)
-    elif voice_wav is not None:
-        suffix = Path(voice_wav.filename).suffix if voice_wav.filename else ".wav"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-            content = voice_wav.file.read()
-            temp_file.write(content)
-            temp_file.flush()
-            temp_file_path = temp_file.name
+        if voice_url is not None:
+            if not (
+                voice_url.startswith("http://")
+                or voice_url.startswith("https://")
+                or voice_url.startswith("hf://")
+                or voice_url in _ORIGINS_OF_PREDEFINED_VOICES
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="voice_url must be a built-in voice name or start with http://, https://, or hf://",
+                )
+            model_state = tts_model._cached_get_state_for_audio_prompt(voice_url)
+        elif voice_wav is not None:
+            suffix = Path(voice_wav.filename).suffix if voice_wav.filename else ".wav"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                content = voice_wav.file.read()
+                temp_file.write(content)
+                temp_file.flush()
+                temp_file_path = temp_file.name
 
-        try:
-            model_state = tts_model.get_state_for_audio_prompt(Path(temp_file_path), truncate=True)
-        finally:
-            os.unlink(temp_file_path)
-    else:
-        raise HTTPException(status_code=500, detail="This should never happen.")
+            try:
+                model_state = tts_model.get_state_for_audio_prompt(Path(temp_file_path), truncate=True)
+            finally:
+                os.unlink(temp_file_path)
+        else:
+            raise HTTPException(status_code=500, detail="This should never happen.")
 
-    return StreamingResponse(
-        generate_data_with_state(text, model_state),
-        media_type="audio/wav",
-        headers={
-            "Content-Disposition": "attachment; filename=generated_speech.wav",
-            "Transfer-Encoding": "chunked",
-        },
-    )
+        return StreamingResponse(
+            generate_data_with_state(text, model_state),
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition": "attachment; filename=generated_speech.wav",
+                "Transfer-Encoding": "chunked",
+            },
+        )
 
 
 @cli_app.command()
@@ -175,6 +182,12 @@ def serve(
         bool, typer.Option(help="Apply int8 quantization to reduce memory usage")
     ] = False,
 ):
+    if not HAS_SERVER_DEPS:
+        print(
+            "Error: fastapi and uvicorn are required for the web server. "
+            "Please install them with: pip install fastapi uvicorn"
+        )
+        raise typer.Exit(code=1)
     global tts_model
     tts_model = TTSModel.load_model(language=language, config=config, quantize=quantize)
     uvicorn.run("pocket_tts.main:web_app", host=host, port=port, reload=reload)

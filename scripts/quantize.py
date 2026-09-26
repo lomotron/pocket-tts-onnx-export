@@ -1,9 +1,11 @@
 
-import os
 import argparse
+import os
+import sys
+from pathlib import Path
+
 import onnx
 from onnxruntime.quantization import quantize_dynamic, QuantType
-from pathlib import Path
 
 MODELS_TO_QUANTIZE = [
     "flow_lm_main",
@@ -13,17 +15,16 @@ MODELS_TO_QUANTIZE = [
     "text_conditioner"
 ]
 
-def quantize_file(input_path: Path, output_path: Path, op_types=['MatMul']):
+def quantize_file(input_path: Path, output_path: Path, op_types=['MatMul']) -> bool:
     """
     Quantize a single ONNX file using dynamic quantization.
     """
     if not input_path.exists():
         print(f"⚠️ Skipping {input_path.name} (not found)")
-        return
+        return False
 
     print(f"Quantizing {input_path.name}...")
-    
-    # Run shape inference to fix missing types (helps with quantization stability)
+    temp_path = output_path.with_suffix(".temp.onnx")
 
     try:
         print(f"  Running shape inference...")
@@ -33,7 +34,6 @@ def quantize_file(input_path: Path, output_path: Path, op_types=['MatMul']):
         model = onnx.shape_inference.infer_shapes(model)
         
         # Save to temp file for quantization input
-        temp_path = output_path.with_suffix(".temp.onnx")
         onnx.save(model, str(temp_path))
         
         # Quantize
@@ -44,22 +44,23 @@ def quantize_file(input_path: Path, output_path: Path, op_types=['MatMul']):
             op_types_to_quantize=op_types,
             extra_options={'ForceQuantizeNoType': True, 'DefaultTensorType': 1}
         )
-        
-        # Cleanup
-        if temp_path.exists():
-            temp_path.unlink()
             
         # Stats
         size_orig = input_path.stat().st_size / (1024 * 1024)
         size_quant = output_path.stat().st_size / (1024 * 1024)
         reduction = (size_orig - size_quant) / size_orig * 100
         print(f"  ✅ Complete: {size_orig:.1f}MB -> {size_quant:.1f}MB ({reduction:.1f}% reduction)")
+        return True
         
     except Exception as e:
         print(f"  ❌ Quantization failed for {input_path.name}: {e}")
         # Clean up partial output
         if output_path.exists():
             output_path.unlink()
+        return False
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
 
 def main():
     parser = argparse.ArgumentParser(description="Quantize PocketTTS ONNX models to INT8.")
@@ -72,13 +73,14 @@ def main():
     
     if not input_dir.exists():
         print(f"Error: Input directory '{input_dir}' does not exist.")
-        return
+        sys.exit(1)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"Starting Quantization: {input_dir} -> {output_dir}")
     print("Using Safe 'MatMul' only quantization for broad CPU compatibility.")
     
+    success = True
     for model_name in MODELS_TO_QUANTIZE:
         in_file = input_dir / f"{model_name}.onnx"
         
@@ -86,7 +88,12 @@ def main():
         # and looks for them in the SAME directory by default.
         out_file = output_dir / f"{model_name}_int8.onnx"
         
-        quantize_file(in_file, out_file, op_types=['MatMul'])
+        if not quantize_file(in_file, out_file, op_types=['MatMul']):
+            success = False
+
+    if not success:
+        print("\n❌ Quantization completed with errors.")
+        sys.exit(1)
 
     print("\nQuantization routine finished.")
 
