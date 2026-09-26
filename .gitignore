@@ -10,6 +10,12 @@ weights/
 # Exported Models
 onnx/
 onnx_models/
+pocket-tts-onnx/
+pocket-tts-onnx*/
+target/
+*.tgz
+*.tar.gz
+*.tar.bz2
 
 # Generated Audio
 *.wav

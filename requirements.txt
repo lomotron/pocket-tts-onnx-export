@@ -11,3 +11,8 @@ transformers
 einops
 pydantic
 onnxscript
+typer
+pyyaml
+requests
+numpy
+typing_extensions

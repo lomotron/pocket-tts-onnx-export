@@ -88,6 +88,22 @@ def run_quantization(output_dir: Path):
     print(f"✅ Quantization Success! INT8 models in: {output_dir.absolute()}")
 
 
+def copy_test_wavs(output_dir: Path):
+    import shutil
+    dest_test_wavs = output_dir / "test_wavs"
+    dest_test_wavs.mkdir(exist_ok=True, parents=True)
+    sources = [
+        Path("test_wavs"),
+        Path("pocket-tts-onnx") / "onnx" / "german" / "test_wavs",
+        Path("../tts/sherpa-onnx-pocket-tts-int8-2026-01-26/test_wavs"),
+    ]
+    for src in sources:
+        if src.exists() and src.is_dir():
+            for f in src.glob("*.*"):
+                if f.is_file() and not (dest_test_wavs / f.name).exists():
+                    shutil.copy2(f, dest_test_wavs / f.name)
+
+
 def print_summary(output_dir: Path):
     print(f"\n✅ All Done! Models are in: {output_dir.absolute()}")
     if not output_dir.exists():
@@ -119,4 +135,5 @@ if __name__ == "__main__":
     if args.quantize:
         run_quantization(final_output_dir)
 
+    copy_test_wavs(final_output_dir)
     print_summary(final_output_dir)

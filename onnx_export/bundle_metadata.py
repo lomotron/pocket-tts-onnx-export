@@ -81,6 +81,22 @@ def _copy_tokenizer(tts_model, output_dir: Path) -> str:
         if tokenizer_dest.exists():
             tokenizer_dest.unlink()
         shutil.copy2(tokenizer_src, tokenizer_dest)
+
+    try:
+        import sentencepiece as spm
+        sp = spm.SentencePieceProcessor(model_file=str(tokenizer_dest))
+        token2id = {}
+        token2score = {}
+        for i in range(sp.get_piece_size()):
+            tok = sp.id_to_piece(i)
+            token2id[tok] = i
+            token2score[tok] = sp.get_score(i)
+        (output_dir / "vocab.json").write_text(json.dumps(token2id, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        (output_dir / "token_scores.json").write_text(json.dumps(token2score, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"✅ Generated vocab.json ({len(token2id)} tokens) & token_scores.json")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not generate vocab.json/token_scores.json: {e}")
+
     return tokenizer_dest.name
 
 
