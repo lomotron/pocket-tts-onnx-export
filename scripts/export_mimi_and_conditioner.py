@@ -317,9 +317,17 @@ def export_models(output_dir="onnx_models", language=DEFAULT_LANGUAGE, config=No
     # ---------------------------------------------------------
     print("Exporting Mimi Encoder...")
     
+    bos_before_voice = (
+        tts_model.flow_lm.bos_before_voice
+        if getattr(tts_model.flow_lm, "insert_bos_before_voice", False)
+        and hasattr(tts_model.flow_lm, "bos_before_voice")
+        else None
+    )
+
     mimi_encoder_wrapper = MimiEncoderWrapper(
         tts_model.mimi,
-        speaker_proj_weight=tts_model.flow_lm.speaker_proj_weight
+        speaker_proj_weight=tts_model.flow_lm.speaker_proj_weight,
+        bos_before_voice=bos_before_voice,
     )
     mimi_encoder_wrapper.eval()
     

@@ -163,13 +163,17 @@ class MimiWrapper(nn.Module):
 
 class MimiEncoderWrapper(nn.Module):
     """Wrapper for Mimi encoder that takes raw audio and returns latent embeddings."""
-    def __init__(self, mimi: MimiModel, speaker_proj_weight=None):
+    def __init__(self, mimi: MimiModel, speaker_proj_weight=None, bos_before_voice=None):
         super().__init__()
         self.mimi = mimi
         if speaker_proj_weight is not None:
             self.register_buffer("speaker_proj_weight", speaker_proj_weight)
         else:
             self.speaker_proj_weight = None
+        if bos_before_voice is not None:
+            self.register_buffer("bos_before_voice", bos_before_voice)
+        else:
+            self.bos_before_voice = None
 
     def forward(self, audio):
         # audio: [B, C, T] -> latent: [B, T', D]
@@ -181,6 +185,10 @@ class MimiEncoderWrapper(nn.Module):
         if self.speaker_proj_weight is not None:
             latents = torch.nn.functional.linear(latents, self.speaker_proj_weight)
         
+        if self.bos_before_voice is not None:
+            # Prepend bos_before_voice: [1, 1, 1024] + [1, T', 1024] -> [1, 1+T', 1024]
+            latents = torch.cat([self.bos_before_voice, latents], dim=1)
+
         return latents
 
 
