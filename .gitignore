@@ -18,7 +18,8 @@ target/
 *.tar.bz2
 
 # Generated Audio
-*.wav
+# *.wav
 
 # Misc
 .DS_Store
+./*.bkp

@@ -442,10 +442,18 @@ def verify_export(flow_lm_path, mimi_path, tts_model, output_dir="onnx_models", 
         # Test audio input
         test_audio = torch.randn(1, 1, 24000)  # 1 second
         
+        bos_before_voice = (
+            tts_model.flow_lm.bos_before_voice
+            if getattr(tts_model.flow_lm, "insert_bos_before_voice", False)
+            and hasattr(tts_model.flow_lm, "bos_before_voice")
+            else None
+        )
+
         # PyTorch run
         encoder_wrapper = MimiEncoderWrapper(
             tts_model.mimi,
-            speaker_proj_weight=tts_model.flow_lm.speaker_proj_weight
+            speaker_proj_weight=tts_model.flow_lm.speaker_proj_weight,
+            bos_before_voice=bos_before_voice,
         )
         with torch.no_grad():
             pt_encoder_out = encoder_wrapper(test_audio)
