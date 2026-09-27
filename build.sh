@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Resolve paths
-WWW_ROOT_ARG="${1:-/var/www/lomotron.de/pub/models/tts}"
+WWW_ROOT_ARG="${1:-/var/www}/lomotron.de/pub/models/tts"
 if [ -d "${WWW_ROOT_ARG}" ]; then
     WWW_ROOT="$(cd "${WWW_ROOT_ARG}" && pwd)"
 else
@@ -13,6 +13,8 @@ else
         WWW_ROOT="${WWW_ROOT_ARG}"
     fi
 fi
+mkdir -p "${WWW_ROOT}" 2>/dev/null
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 CURRENT_LINK="${WWW_ROOT}/current"
