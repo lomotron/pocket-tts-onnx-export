@@ -13,7 +13,7 @@ else
         WWW_ROOT="${WWW_ROOT_ARG}"
     fi
 fi
-mkdir -p "${WWW_ROOT}" 2>/dev/null
+# mkdir -p "${WWW_ROOT}" 2>/dev/null
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
