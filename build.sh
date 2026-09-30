@@ -57,8 +57,8 @@ rm -f "${REPO_ROOT}/pocket-tts-onnx/onnx/german/mimi_decoder.onnx"
 rm -f "${REPO_ROOT}/pocket-tts-onnx/onnx/german/text_conditioner_int8.onnx"
 
 mkdir -p "${REPO_ROOT}/pocket-tts-onnx/onnx/german/test_wavs"
-cp "${REPO_ROOT}/pocket_tts/config/german.wav" "${REPO_ROOT}/pocket-tts-onnx/onnx/german/test_wavs/"
-cp "${REPO_ROOT}/pocket_tts/config/german.txt" "${REPO_ROOT}/pocket-tts-onnx/onnx/german/test_wavs/"
+cp "${REPO_ROOT}/pocket_tts/config/*.wav" "${REPO_ROOT}/pocket-tts-onnx/onnx/german/test_wavs/"
+cp "${REPO_ROOT}/pocket_tts/config/*.txt" "${REPO_ROOT}/pocket-tts-onnx/onnx/german/test_wavs/"
 
 TARBALL_NAME="pocket-tts-onnx-german.tar.gz"
 echo "==> Creating tarball ${TARBALL_NAME}..."
